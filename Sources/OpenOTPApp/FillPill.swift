@@ -46,7 +46,7 @@ final class FillPill {
         self.panel = panel
 
         dismissTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { [weak self] _ in
-            Task { @MainActor in self?.dismiss() }
+            Task { @MainActor [weak self] in self?.dismiss() }
         }
     }
 

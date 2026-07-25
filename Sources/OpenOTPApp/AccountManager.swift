@@ -73,7 +73,7 @@ final class AccountManager {
         if let existing = watchers[email] { Task { await existing.stop() } }
         let watcher = AccountWatcher(source: source, store: store) { [weak self] status in
             // Hop to the main actor; only propagate real changes.
-            Task { @MainActor in self?.updateStatus(email, status) }
+            Task { @MainActor [weak self] in self?.updateStatus(email, status) }
         }
         watchers[email] = watcher
         Task { await watcher.start() }

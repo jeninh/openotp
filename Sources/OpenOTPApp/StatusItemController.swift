@@ -38,7 +38,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             DispatchQueue.main.async { self?.refresh() }
         }
         ticker = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+            Task { @MainActor [weak self] in self?.refresh() }
         }
         setVisible(Prefs.menuBarVisible)
         refresh()
