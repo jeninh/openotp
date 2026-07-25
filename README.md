@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/jeninh/OpenOTP/releases/latest">Download</a> ·
-  <a href="#building-from-source">Build from source</a> 
+  <a href="#building-from-source">Build from source</a> <br>
   <sub>macOS 13+</sub>
 </p>
 
