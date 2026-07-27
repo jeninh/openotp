@@ -22,6 +22,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     func install() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // Stable key for the item's saved position/visibility (default is "Item-0").
+        statusItem.autosaveName = "OpenOTPStatusItem"
         if let button = statusItem.button {
             if let img = IconSet.emailCheck(size: 18, color: .labelColor, template: true) {
                 button.image = img

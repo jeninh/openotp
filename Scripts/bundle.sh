@@ -6,7 +6,10 @@ set -euo pipefail
 CONFIG="${1:-debug}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="OpenOTP"
-BUNDLE_ID="com.openotp.app"
+# Reverse-DNS of openotp.app (the domain we own). Changed from com.openotp.app
+# pre-release: macOS on jenin's machine held an unfindable per-bundle-id state
+# that permanently suppressed the old id's menu bar item.
+BUNDLE_ID="app.openotp.mac"
 
 cd "$ROOT"
 
@@ -87,13 +90,52 @@ else
   codesign --force --sign - "$APP_DIR" >/dev/null 2>&1 || echo "   (codesign skipped)"
 fi
 
-# Zip the .app as the GitHub Release artifact (skip if notarized above, which zips internally).
-if [ -z "${NOTARY_PROFILE:-}" ]; then
-  ZIP="$ROOT/build/$APP_NAME.zip"
-  rm -f "$ZIP"
-  ditto -c -k --keepParent "$APP_DIR" "$ZIP"
-  echo "==> release artifact: $ZIP"
+# Privacy check: refuse to package if the signed app leaks anything personal —
+# home paths, this machine's name, the account's full name, or a signature from
+# an identity-bearing cert (e.g. "Apple Development: <real name>"). Project
+# github.com URLs are expected in the binary and excluded from the scan.
+echo "==> privacy check"
+FULLNAME="$(id -F 2>/dev/null | tr -d '\n' || true)"
+HOSTNAME1="$(scutil --get ComputerName 2>/dev/null || true)"
+HOSTNAME2="$(scutil --get LocalHostName 2>/dev/null || true)"
+PAT="/Users/${FULLNAME:+|$FULLNAME}${HOSTNAME1:+|$HOSTNAME1}${HOSTNAME2:+|$HOSTNAME2}"
+LEAKS="$( { strings -a "$CONTENTS/MacOS/$APP_NAME"; cat "$CONTENTS/Info.plist"; } \
+  | grep -iwE "$PAT" | grep -viE 'github\.com/' || true)"
+AUTHORITY="$(codesign -dvv "$APP_DIR" 2>&1 | grep '^Authority=' | head -1 || true)"
+case "$AUTHORITY" in
+  *"Apple Development"*|*"Mac Developer"*)
+    LEAKS="${LEAKS}${LEAKS:+
+}identity-bearing signature: $AUTHORITY" ;;
+esac
+if [ -n "$LEAKS" ]; then
+  echo "!! privacy check FAILED — artifact contains:" >&2
+  printf '%s\n' "$LEAKS" | head -10 >&2
+  exit 1
 fi
+echo "    clean: no home paths, hostname, full name, or identity certs"
+
+# Package a drag-to-Applications DMG as the GitHub Release artifact. Built last,
+# after signing/stapling, so the image carries the final verified app.
+DMG="$ROOT/build/$APP_NAME.dmg"
+STAGE="$ROOT/build/dmg-stage"
+echo "==> packaging $DMG"
+rm -rf "$STAGE" "$DMG"
+mkdir -p "$STAGE"
+ditto "$APP_DIR" "$STAGE/$APP_NAME.app"
+# Strip extended attributes (Finder info, resource forks) so stray metadata
+# doesn't ship in the image. Note: com.apple.provenance survives this — it's
+# SIP-protected and re-stamped by the kernel. It's an opaque machine-local
+# token (no identity data); build on CI if releases must not carry it.
+xattr -cr "$STAGE"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO -imagekey zlib-level=9 -quiet "$DMG"
+rm -rf "$STAGE"
+if [ -n "${SIGN_IDENTITY:-}" ]; then
+  echo "==> codesign DMG"
+  codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
+fi
+echo "==> release artifact: $DMG"
+shasum -a 256 "$DMG" | sed 's/^/    sha256: /'
 
 echo "==> done: $APP_DIR"
 echo "    run with: open \"$APP_DIR\"   (look for the key icon in the menu bar)"
