@@ -70,9 +70,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         accountManager.startAll()
 
+        // Track window closes so the Dock icon disappears when the last
+        // window goes away (the app lives on in the menu bar).
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowWillClose(_:)),
+            name: NSWindow.willCloseNotification, object: nil)
+
         if accountManager.accounts.isEmpty {
             showOnboarding()
         }
+    }
+
+    @objc private func windowWillClose(_ note: Notification) {
+        guard let closing = note.object as? NSWindow,
+              closing === onboarding?.window || closing === settingsWindow?.window else { return }
+        // Defer one runloop turn: the closing window still reads as visible here.
+        DispatchQueue.main.async { [weak self] in self?.hideDockIfNoWindows() }
+    }
+
+    private func hideDockIfNoWindows() {
+        let anyOpen = onboarding?.window?.isVisible == true || settingsWindow?.window?.isVisible == true
+        if !anyOpen { NSApp.setActivationPolicy(.accessory) }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -111,6 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showSettings() {
+        NSApp.setActivationPolicy(.regular)
         let controller = settingsWindow ?? makeSettingsWindow()
         settingsWindow = controller
         controller.present()
@@ -145,6 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.onboarding?.close()
             self?.onboarding = nil
         }
+        NSApp.setActivationPolicy(.regular)
         let controller = OnboardingWindowController(model: model)
         onboarding = controller
         controller.present()

@@ -2,7 +2,9 @@ import AppKit
 
 MainActor.assumeIsolated {
     let app = NSApplication.shared
-    app.setActivationPolicy(.regular)
+    // Menu-bar app: no Dock icon by default. AppDelegate switches to .regular
+    // while a window (onboarding/settings) is open, and back when it closes.
+    app.setActivationPolicy(.accessory)
 
     let delegate = AppDelegate()
     app.delegate = delegate

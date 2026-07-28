@@ -95,6 +95,8 @@ The pipeline:
 
 Icons by [Hack Club](https://icons.hackclub.com)
 
+Built with help from [Claude Code](https://claude.com/claude-code)
+
 ## License
 
 [MIT](LICENSE) © jeninh
